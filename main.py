@@ -55,3 +55,6 @@ async def websocket_endpoint(websocket: WebSocket):
         except Exception as e:
             print('WebSocket Error: ', e)
             break
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8001)
