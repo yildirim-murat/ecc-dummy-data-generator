@@ -1,60 +1,78 @@
-import asyncio
+import os
 import random
 from datetime import datetime
+from fastapi import FastAPI, WebSocket
+import asyncio
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+from starlette.responses import StreamingResponse
 
-app = FastAPI(title='Dummy Data Generator')
+app = FastAPI()
 
+class CallInfo(BaseModel):
+    call_id: str
+    phone_number: str
+    location: dict
+
+def generate_call_id():
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
+    unique_number = f"{random.randint(0, 999):03d}"
+    return f"{timestamp}{unique_number}"
 
 def generate_phone_number():
-    number = "0312" + "".join([str(random.randint(0, 9)) for _ in range(7)])
+    start = random.choice(["03", "05"])
+    number = start + ''.join(random.choices("0123456789", k=9))
     return number
 
-
-def generate_time():
-    return datetime.now().strftime("%H:%M:%S")
-
-
-def generate_date():
-    return datetime.now().strftime("%d.%m.%Y")
-
-
-def generate_lat_long():
-    longitude = random.uniform(36.0, 42.0)
-    latitude = random.uniform(26.0, 45.0)
-    return latitude, longitude
-
-
-def generate_data():
-    phone_number = generate_phone_number()
-    time_stamp = generate_time() + " " + generate_date()
-    latitude, longitude = generate_lat_long()
-
-    data = {
-        "phone_number": phone_number,
-        "time_stamp": time_stamp,
-        "latitude": latitude,
-        "longitude": longitude
+def generate_location():
+    return {
+        "latitude": random.uniform(39.9334, 39.9886),
+        "longitude": random.uniform(32.8597, 32.9357)
     }
-    return data
 
-
-@app.websocket("/ws")
+@app.websocket("/call-info")
 async def websocket_endpoint(websocket: WebSocket):
-    print('Accepting client connection...')
     await websocket.accept()
-    while True:
-        try:
-            delay = random.uniform(5, 10)
-            await asyncio.sleep(delay)
-            data = generate_data()
-            await websocket.send_json(data)
-            print("Data sent:", data)
+    try:
+        while True:
+            call_id = generate_call_id()
+            phone_number = generate_phone_number()
+            location = generate_location()
+            call_info = CallInfo(
+                call_id=call_id,
+                phone_number=phone_number,
+                location=location
+            )
+            await websocket.send_json(call_info.dict())
+            await asyncio.sleep(random.randint(5, 200))
+    except Exception as e:
+        print(f"WebSocket connection closed: {e}")
+    finally:
+        await websocket.close()
 
-        except Exception as e:
-            print('WebSocket Error: ', e)
-            break
+@app.get("/audio")
+async def stream_audio():
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8001)
+    def generate():
+        audio_file_path = os.path.join(os.getcwd(), str(random.randint(1, 3)) + ".mp3")
+        chunk_size = 1024
+        with open(audio_file_path, "rb") as f:
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    f.seek(0)
+                    chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+
+    return StreamingResponse(generate(), media_type="audio/mp3", headers=headers)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
