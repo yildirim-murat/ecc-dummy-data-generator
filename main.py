@@ -1,10 +1,20 @@
 import asyncio
 import random
 from datetime import datetime
-
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 app = FastAPI(title='Dummy Data Generator')
+
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Geliştirme aşamasında tüm orijinlere izin verilir, ancak prod'da sınırlı olmalı
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def generate_phone_number():
