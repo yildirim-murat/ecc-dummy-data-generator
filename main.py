@@ -1,21 +1,22 @@
 import os
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket
 import asyncio
+from dotenv import load_dotenv
 
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 app = FastAPI()
-
+load_dotenv()
 class CallInfo(BaseModel):
     call_id: str
     phone_number: str
     location: dict
 
 def generate_call_id():
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
+    timestamp = (datetime.now()).strftime("%Y%m%d%H%M%S%f")[:-3]
     unique_number = f"{random.randint(0, 999):03d}"
     return f"{timestamp}{unique_number}"
 
@@ -30,6 +31,8 @@ def generate_location():
         "longitude": random.uniform(32.8597, 32.9357)
     }
 
+min_value = int(os.getenv('minValue'))
+max_value = int(os.getenv('maxValue'))
 @app.websocket("/call-info")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -44,7 +47,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 location=location
             )
             await websocket.send_json(call_info.dict())
-            await asyncio.sleep(random.randint(5, 200))
+            await asyncio.sleep(random.randint(min_value, max_value))
     except Exception as e:
         print(f"WebSocket connection closed: {e}")
     finally:
@@ -59,7 +62,7 @@ async def stream_audio():
     }
 
     def generate():
-        audio_file_path = os.path.join(os.getcwd(), str(random.randint(1, 3)) + ".mp3")
+        audio_file_path = os.path.join(os.getcwd(), str(random.randint(1, 5)) + ".mp3")
         chunk_size = 1024
         with open(audio_file_path, "rb") as f:
             while True:
@@ -75,4 +78,4 @@ async def stream_audio():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
