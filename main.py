@@ -46,8 +46,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 phone_number=phone_number,
                 location=location
             )
-            await websocket.send_json(call_info.dict())
             await asyncio.sleep(random.randint(min_value, max_value))
+            await websocket.send_json(call_info.model_dump())
     except Exception as e:
         print(f"WebSocket connection closed: {e}")
     finally:
